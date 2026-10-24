@@ -1,0 +1,20 @@
+# Python backend
+langchain
+langchain_openai
+langchain-text-splitters
+weaviate-client
+langgraph
+langgraph-checkpoint-postgres
+psycopg[binary,pool]
+fastapi
+uvicorn[standard]
+pyyaml
+python-dotenv
+langsmith
+
+# Dev reference (original chatbot — see v1_simple_chatbot/)
+streamlit
+
+# Run servers:
+#   python -m uvicorn backend.api:app --port 8001 --reload
+#   cd frontend && npm run dev

@@ -1,0 +1,229 @@
+name: Deploy
+
+# Runs automatically when a PR is merged into main.
+# The eval.yml workflow gates PRs — by the time code reaches main, F1 ≥ 0.80.
+# Enforce this with GitHub branch protection: require "Eval (F1 gate)" to pass
+# before allowing a merge.
+on:
+  push:
+    branches: [main]
+
+env:
+  GCP_REGION:       us-central1
+  BACKEND_SERVICE:  taskpilot-backend
+  FRONTEND_SERVICE: taskpilot-frontend
+  ARTIFACT_REPO:    taskpilot
+  SQL_INSTANCE_NAME: taskpilot-pg
+
+jobs:
+  deploy:
+    name: Build & deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    # id-token: write is required for Workload Identity Federation.
+    # It lets GitHub Actions mint a short-lived OIDC token that GCP accepts
+    # instead of a long-lived service-account JSON key.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── GCP authentication (Workload Identity Federation) ─────────────────
+      # No service-account key stored in GitHub. GCP trusts the repo's OIDC
+      # token and grants access scoped to this workflow only.
+      # Setup: see the one-time GCP setup section at the bottom of this file.
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account:            ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      # ── Compute image tags ────────────────────────────────────────────────
+      # Tag with the git SHA (unique per commit) + latest (used as build cache).
+      - name: Set image tags
+        id: tags
+        run: |
+          REPO="${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}"
+          echo "backend=${REPO}/backend:${{ github.sha }}"          >> $GITHUB_OUTPUT
+          echo "backend_latest=${REPO}/backend:latest"               >> $GITHUB_OUTPUT
+          echo "frontend=${REPO}/frontend:${{ github.sha }}"         >> $GITHUB_OUTPUT
+          echo "frontend_latest=${REPO}/frontend:latest"             >> $GITHUB_OUTPUT
+
+      # ── Build & push backend ──────────────────────────────────────────────
+      # Pull the previous latest image first so Docker can reuse cached layers
+      # (speeds up pip install steps that haven't changed).
+      - name: Pull backend cache
+        run: docker pull ${{ steps.tags.outputs.backend_latest }} || true
+
+      - name: Build backend image
+        run: |
+          docker build \
+            --cache-from ${{ steps.tags.outputs.backend_latest }} \
+            -f backend/Dockerfile \
+            -t ${{ steps.tags.outputs.backend }} \
+            -t ${{ steps.tags.outputs.backend_latest }} \
+            .
+
+      - name: Push backend image
+        run: |
+          docker push ${{ steps.tags.outputs.backend }}
+          docker push ${{ steps.tags.outputs.backend_latest }}
+
+      # ── Deploy backend ────────────────────────────────────────────────────
+      - name: Deploy backend to Cloud Run
+        run: |
+          SQL_INSTANCE="${{ secrets.GCP_PROJECT }}:${{ env.GCP_REGION }}:${{ env.SQL_INSTANCE_NAME }}"
+          DB_URL="postgresql://postgres:${{ secrets.DB_PASS }}@/agentdb?host=/cloudsql/${SQL_INSTANCE}"
+
+          gcloud run deploy ${{ env.BACKEND_SERVICE }} \
+            --image="${{ steps.tags.outputs.backend }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8001 \
+            --set-env-vars="PORT=8001,LANGCHAIN_TRACING_V2=true,LANGCHAIN_PROJECT=taskpilot-support-agent" \
+            --set-env-vars="DATABASE_URL=${DB_URL}" \
+            --set-secrets="\
+OPENAI_API_KEY=OPENAI_API_KEY:latest,\
+WEAVIATE_URL=WEAVIATE_URL:latest,\
+WEAVIATE_API_KEY=WEAVIATE_API_KEY:latest,\
+LANGCHAIN_API_KEY=LANGCHAIN_API_KEY:latest,\
+SLACK_WEBHOOK_URL=SLACK_WEBHOOK_URL:latest" \
+            --add-cloudsql-instances="${SQL_INSTANCE}" \
+            --min-instances=0 \
+            --max-instances=3 \
+            --memory=512Mi \
+            --cpu=1
+
+      - name: Get backend URL
+        id: backend
+        run: |
+          URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
+            --region="${{ env.GCP_REGION }}" \
+            --format="value(status.url)")
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      # ── Build & push frontend ─────────────────────────────────────────────
+      # BACKEND_URL is a runtime nginx env var — not needed at build time.
+      - name: Pull frontend cache
+        run: docker pull ${{ steps.tags.outputs.frontend_latest }} || true
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --cache-from ${{ steps.tags.outputs.frontend_latest }} \
+            -f frontend/Dockerfile \
+            -t ${{ steps.tags.outputs.frontend }} \
+            -t ${{ steps.tags.outputs.frontend_latest }} \
+            .
+
+      - name: Push frontend image
+        run: |
+          docker push ${{ steps.tags.outputs.frontend }}
+          docker push ${{ steps.tags.outputs.frontend_latest }}
+
+      # ── Deploy frontend ───────────────────────────────────────────────────
+      - name: Deploy frontend to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.FRONTEND_SERVICE }} \
+            --image="${{ steps.tags.outputs.frontend }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=80 \
+            --set-env-vars="BACKEND_URL=${{ steps.backend.outputs.url }}" \
+            --min-instances=0 \
+            --max-instances=3 \
+            --memory=256Mi \
+            --cpu=1
+
+      # ── Write deployment summary to GitHub Actions UI ─────────────────────
+      - name: Deployment summary
+        run: |
+          FRONTEND_URL=$(gcloud run services describe ${{ env.FRONTEND_SERVICE }} \
+            --region="${{ env.GCP_REGION }}" \
+            --format="value(status.url)")
+
+          echo "## ✓ Deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Frontend** | ${FRONTEND_URL} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backend**  | ${{ steps.backend.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit**   | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Actor**    | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+# ── One-time GCP setup for Workload Identity Federation ──────────────────────
+#
+# Run these once in your terminal (replace values in <angle brackets>):
+#
+#   PROJECT=<your-gcp-project-id>
+#   REPO=<your-github-username>/chatbot_using_langraph
+#
+#   # 1. Create a Workload Identity Pool
+#   gcloud iam workload-identity-pools create "github-pool" \
+#     --project="${PROJECT}" \
+#     --location="global" \
+#     --display-name="GitHub Actions pool"
+#
+#   # 2. Create a provider inside the pool (links GitHub OIDC to GCP)
+#   gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+#     --project="${PROJECT}" \
+#     --location="global" \
+#     --workload-identity-pool="github-pool" \
+#     --display-name="GitHub provider" \
+#     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+#     --issuer-uri="https://token.actions.githubusercontent.com"
+#
+#   # 3. Create a service account for Cloud Run deployments
+#   gcloud iam service-accounts create "github-deploy-sa" \
+#     --project="${PROJECT}" \
+#     --display-name="GitHub Actions deploy SA"
+#
+#   # 4. Grant the SA the roles it needs
+#   for ROLE in roles/run.admin roles/artifactregistry.writer roles/iam.serviceAccountUser roles/cloudsql.client; do
+#     gcloud projects add-iam-policy-binding "${PROJECT}" \
+#       --member="serviceAccount:github-deploy-sa@${PROJECT}.iam.gserviceaccount.com" \
+#       --role="${ROLE}"
+#   done
+#
+#   # 5. Allow this specific GitHub repo to impersonate the SA
+#   gcloud iam service-accounts add-iam-policy-binding \
+#     "github-deploy-sa@${PROJECT}.iam.gserviceaccount.com" \
+#     --project="${PROJECT}" \
+#     --role="roles/iam.workloadIdentityUser" \
+#     --member="principalSet://iam.googleapis.com/projects/$(gcloud projects describe ${PROJECT} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-pool/attribute.repository/${REPO}"
+#
+#   # 6. Print the values you need for GitHub secrets
+#   echo "WIF_PROVIDER:"
+#   gcloud iam workload-identity-pools providers describe "github-provider" \
+#     --project="${PROJECT}" \
+#     --location="global" \
+#     --workload-identity-pool="github-pool" \
+#     --format="value(name)"
+#
+#   echo "WIF_SERVICE_ACCOUNT:"
+#   echo "github-deploy-sa@${PROJECT}.iam.gserviceaccount.com"
+#
+# GitHub secrets to add (Settings → Secrets → Actions):
+#   WIF_PROVIDER          — from step 6 above
+#   WIF_SERVICE_ACCOUNT   — from step 6 above
+#   GCP_PROJECT           — your GCP project ID
+#   DB_PASS               — your Cloud SQL postgres password
+#
+# App secrets (OPENAI_API_KEY etc.) live in GCP Secret Manager — not GitHub.
+#
+# Branch protection (Settings → Branches → main):
+#   ✓ Require status checks: "Graph eval (F1 gate ≥ 0.80)"
+#   ✓ Require branches to be up to date before merging
+#   This ensures no code reaches main — and therefore no deploy triggers —
+#   unless the eval passed.

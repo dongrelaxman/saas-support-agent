@@ -1,0 +1,87 @@
+[
+  {
+    "id": "conv_happy_path",
+    "description": "All answerable. Streak stays 0. No handoff.",
+    "turns": [
+      "How much is Pro per month?",
+      "How do I enable 2FA?",
+      "What are your support hours?"
+    ],
+    "expected_streak_after_each_turn": [
+      0,
+      0,
+      0
+    ],
+    "expected_final_status": "bot"
+  },
+  {
+    "id": "conv_slow_failure",
+    "description": "Three consecutive out-of-scope questions trigger handoff on turn 3.",
+    "turns": [
+      "Do you offer a lifetime deal?",
+      "Can I self-host TaskPilot?",
+      "Do you offer phone support?"
+    ],
+    "expected_streak_after_each_turn": [
+      1,
+      2,
+      3
+    ],
+    "expected_final_status": "awaiting_human"
+  },
+  {
+    "id": "conv_streak_reset",
+    "description": "Two misses, then a hit resets the streak, then one more miss. No handoff.",
+    "turns": [
+      "Can TaskPilot integrate with Salesforce?",
+      "Is there a native Windows desktop app?",
+      "How long is the password reset link valid?",
+      "Do you offer discounts for nonprofits?"
+    ],
+    "expected_streak_after_each_turn": [
+      1,
+      2,
+      0,
+      1
+    ],
+    "expected_final_status": "bot"
+  },
+  {
+    "id": "conv_explicit_request",
+    "description": "Immediate handoff on turn 1 with no retrieval.",
+    "turns": [
+      "I want to talk to a human"
+    ],
+    "expected_streak_after_each_turn": [
+      0
+    ],
+    "expected_final_status": "awaiting_human"
+  },
+  {
+    "id": "conv_late_request",
+    "description": "Normal answer, then asks for a person on turn 2.",
+    "turns": [
+      "What is the refund policy for annual plans?",
+      "Actually just connect me to an agent"
+    ],
+    "expected_streak_after_each_turn": [
+      0,
+      0
+    ],
+    "expected_final_status": "awaiting_human"
+  },
+  {
+    "id": "conv_stale_doc_trap",
+    "description": "Archived 2024 pricing doc must not win. Expected answer is $12, not $10.",
+    "turns": [
+      "What does Pro cost per user per month, monthly billing?"
+    ],
+    "expected_answer_keywords": [
+      "$12"
+    ],
+    "forbidden_answer_keywords": [
+      "$10 per user per month billed monthly"
+    ],
+    "expected_final_status": "bot"
+  }
+]

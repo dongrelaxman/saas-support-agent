@@ -1,0 +1,40 @@
+# nginx reverse-proxy config for the TaskPilot frontend container.
+#
+# BACKEND_URL is substituted at container start by the official nginx image's
+# envsubst entrypoint.  Set it to:
+#   docker-compose  →  http://backend:8001
+#   Cloud Run       →  https://<backend-cloud-run-url>
+
+server {
+    listen 80;
+    server_name _;
+
+    root  /usr/share/nginx/html;
+    index index.html;
+
+    # React Router — serve index.html for any path the router handles
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # REST API proxy
+    location /api/ {
+        proxy_pass          ${BACKEND_URL};
+        proxy_set_header    Host              $proxy_host;
+        proxy_set_header    X-Real-IP         $remote_addr;
+        proxy_set_header    X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header    X-Forwarded-Proto $scheme;
+        proxy_read_timeout  300s;
+        proxy_buffering     off;            # required for SSE streaming
+    }
+
+    # WebSocket proxy (agent console real-time feed)
+    location /ws/ {
+        proxy_pass              ${BACKEND_URL};
+        proxy_http_version      1.1;
+        proxy_set_header        Upgrade    $http_upgrade;
+        proxy_set_header        Connection "upgrade";
+        proxy_set_header        Host       $proxy_host;
+        proxy_read_timeout      3600s;     # keep WS alive for long sessions
+    }
+}

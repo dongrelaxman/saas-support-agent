@@ -1,0 +1,16 @@
+escalation:
+  streak_limit: 3
+memory:
+  message_window: 20
+  summary_keep: 10
+models:
+  chat: gpt-4o-mini
+  embeddings: text-embedding-3-small
+  intent: gpt-4o-mini
+retrieval:
+  threshold: 0.75
+  top_k: 3
+slack:
+  channel: '#support-queue'
+weaviate:
+  collection: TaskpilotKB

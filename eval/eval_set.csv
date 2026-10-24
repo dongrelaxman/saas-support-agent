@@ -1,0 +1,51 @@
+id,question,category,expected_behavior,expected_answer_keywords,source_doc
+q01,How much is the Pro plan per user per month if I pay monthly?,in_scope,answer,$12,01_pricing_and_plans.md
+q02,What does the Business plan cost per user on annual billing?,in_scope,answer,$20,01_pricing_and_plans.md
+q03,How many projects can I have on the Free plan?,in_scope,answer,3 projects,01_pricing_and_plans.md
+q04,Do I need a credit card to start the trial?,in_scope,answer,no credit card; 14 days,01_pricing_and_plans.md
+q05,What's the maximum file size I can upload on Pro?,in_scope,answer,2 GB,01_pricing_and_plans.md
+q06,How much storage do I get on the Free plan?,in_scope,answer,2 GB,01_pricing_and_plans.md
+q07,Can I get a refund on my annual plan?,in_scope,answer,14 days of first purchase,02_refunds_and_cancellation.md
+q08,Are monthly plans refundable?,in_scope,answer,not refundable; cancel anytime,02_refunds_and_cancellation.md
+q09,How do I cancel my subscription?,in_scope,answer,Settings > Billing > Cancel plan,02_refunds_and_cancellation.md
+q10,If I delete my account can I get it back?,in_scope,answer,30-day grace period,02_refunds_and_cancellation.md
+q11,How do I change my payment method?,in_scope,answer,Settings > Billing > Payment method,03_billing_and_payments.md
+q12,What happens if my payment fails?,in_scope,answer,retry 3 times over 7 days; downgrade to Free,03_billing_and_payments.md
+q13,How long is the password reset link valid?,in_scope,answer,30 minutes,04_account_and_login.md
+q14,How many wrong passwords before my account gets locked?,in_scope,answer,5 attempts; 15 minutes,04_account_and_login.md
+q15,How do I invite someone to my workspace?,in_scope,answer,Members > Invite,04_account_and_login.md
+q16,How many guests can I have for free?,in_scope,answer,10 guests,04_account_and_login.md
+q17,How do I turn on two-factor authentication?,in_scope,answer,Settings > Security; authenticator app,05_security_and_2fa.md
+q18,How many backup codes do I get with 2FA?,in_scope,answer,10,05_security_and_2fa.md
+q19,Which plans include SSO?,in_scope,answer,Business and Enterprise; SAML,05_security_and_2fa.md
+q20,Do you support SMS codes for 2FA?,in_scope,answer,no SMS,05_security_and_2fa.md
+q21,How do I export my data?,in_scope,answer,Settings > Data > Export; CSV or JSON,06_data_export_and_retention.md
+q22,How long do deleted projects stay in the trash?,in_scope,answer,30 days,06_data_export_and_retention.md
+q23,Where is my data hosted?,in_scope,answer,AWS us-east-1; EU eu-west-1,06_data_export_and_retention.md
+q24,Is TaskPilot SOC 2 certified?,in_scope,answer,SOC 2 Type II,06_data_export_and_retention.md
+q25,Can I import my projects from Jira?,in_scope,answer,Settings > Import > Jira; no attachments,07_integrations.md
+q26,What is the API rate limit on the Pro plan?,in_scope,answer,600 requests per minute,07_integrations.md
+q27,What iOS version do I need for the mobile app?,in_scope,answer,iOS 15,08_mobile_apps.md
+q28,Does the mobile app work offline?,in_scope,answer,yes; 7 days,08_mobile_apps.md
+q29,What are your support hours?,in_scope,answer,Mon-Fri 9am-6pm UTC,09_support_and_sla.md
+q30,How fast does the Business plan get a support response?,in_scope,answer,within 4 hours,09_support_and_sla.md
+q31,Do you offer a lifetime deal?,out_of_scope,low_confidence_hedge,,
+q32,Is there a native Windows desktop app?,out_of_scope,low_confidence_hedge,,
+q33,Can TaskPilot integrate with Salesforce?,out_of_scope,low_confidence_hedge,,
+q34,Who is the CEO of TaskPilot?,out_of_scope,low_confidence_hedge,,
+q35,How do I reset my Netflix password?,out_of_scope,low_confidence_hedge,,
+q36,Does the Timeline view support critical path analysis?,out_of_scope,low_confidence_hedge,,
+q37,Do you offer discounts for nonprofits?,out_of_scope,low_confidence_hedge,,
+q38,What's the weather like in Berlin today?,out_of_scope,low_confidence_hedge,,
+q39,Can you sign a HIPAA BAA?,out_of_scope,low_confidence_hedge,,
+q40,Can I white-label TaskPilot with my own logo and domain?,out_of_scope,low_confidence_hedge,,
+q41,What's on your roadmap for AI features?,out_of_scope,low_confidence_hedge,,
+q42,How do I set up the TaskPilot Zapier integration?,out_of_scope,low_confidence_hedge,,
+q43,Can I self-host TaskPilot on my own servers?,out_of_scope,low_confidence_hedge,,
+q44,What is your guaranteed uptime SLA percentage?,out_of_scope,low_confidence_hedge,,
+q45,Do you offer phone support?,out_of_scope,low_confidence_hedge,,
+q46,I want to talk to a human,human_request,immediate_handoff,,
+q47,Can I speak to a real person please?,human_request,immediate_handoff,,
+q48,Connect me to an agent,human_request,immediate_handoff,,
+q49,"This bot is useless, get me a representative",human_request,immediate_handoff,,
+q50,Transfer me to support staff,human_request,immediate_handoff,,

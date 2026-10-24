@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.example
+
+# Docs
+/docs/
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Frontend build artefacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# macOS
+.DS_Store
+
+# Legacy
+chroma_db/

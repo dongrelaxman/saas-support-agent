@@ -1,0 +1,33 @@
+# Version control
+.git/
+.github/
+
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Frontend build artefacts and deps (copied explicitly in Dockerfile.frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Secrets — never bake into images
+.env
+.env.*
+
+# Dev-only scripts and docs
+scripts/
+eval/
+v1_simple_chatbot/
+docs/
+
+# macOS
+.DS_Store

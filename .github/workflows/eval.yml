@@ -1,0 +1,69 @@
+name: Eval
+
+# Run on every PR that touches the knowledge base, graph logic, or eval config.
+# Fails the PR if the confidence-router F1 drops below 0.80.
+on:
+  pull_request:
+    paths:
+      - "kb/**"
+      - "backend/**"
+      - "config.yaml"
+      - "eval/**"
+      - "scripts/ingest.py"
+      - "scripts/eval.py"
+
+jobs:
+  eval:
+    name: "Graph eval (F1 gate ≥ 0.80)"
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432   # expose on 5432 — set DATABASE_URL below to match
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Re-ingest the KB every run so the vector store reflects the current
+      # state of kb/ exactly — no drift from a previous CI run.
+      - name: Ingest knowledge base → Weaviate
+        env:
+          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          WEAVIATE_URL:    ${{ secrets.WEAVIATE_URL }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          DATABASE_URL:    postgresql://postgres:postgres@localhost:5432/agentdb
+        run: python scripts/ingest.py
+
+      # Run all 50 questions + 6 multi-turn scenarios.
+      # Exit code 1 (F1 < 0.80) causes the step — and the PR — to fail.
+      - name: Run eval suite
+        env:
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          WEAVIATE_URL:         ${{ secrets.WEAVIATE_URL }}
+          WEAVIATE_API_KEY:     ${{ secrets.WEAVIATE_API_KEY }}
+          DATABASE_URL:         postgresql://postgres:postgres@localhost:5432/agentdb
+          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_API_KEY:    ${{ secrets.LANGCHAIN_API_KEY }}
+          LANGCHAIN_PROJECT:    taskpilot-support-agent-ci
+        run: python scripts/eval.py
