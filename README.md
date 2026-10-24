@@ -162,3 +162,4 @@ python scripts/eval.py
 Runs 50 single-turn questions + 6 multi-turn conversation scenarios. Prints per-question results and a final F1 score. Exits with code `1` if F1 < 0.80.
 
 Cost per run: ~$0.02.
+
