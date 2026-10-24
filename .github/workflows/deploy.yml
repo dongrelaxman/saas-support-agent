@@ -83,6 +83,7 @@ jobs:
         run: |
           SQL_INSTANCE="${{ secrets.GCP_PROJECT }}:${{ env.GCP_REGION }}:${{ env.SQL_INSTANCE_NAME }}"
           DB_URL="postgresql://postgres:${{ secrets.DB_PASS }}@/agentdb?host=/cloudsql/${SQL_INSTANCE}"
+          SECRETS="OPENAI_API_KEY=OPENAI_API_KEY:latest,WEAVIATE_URL=WEAVIATE_URL:latest,WEAVIATE_API_KEY=WEAVIATE_API_KEY:latest,LANGCHAIN_API_KEY=LANGCHAIN_API_KEY:latest,SLACK_WEBHOOK_URL=SLACK_WEBHOOK_URL:latest"
 
           gcloud run deploy ${{ env.BACKEND_SERVICE }} \
             --image="${{ steps.tags.outputs.backend }}" \
@@ -92,12 +93,7 @@ jobs:
             --port=8001 \
             --set-env-vars="PORT=8001,LANGCHAIN_TRACING_V2=true,LANGCHAIN_PROJECT=taskpilot-support-agent" \
             --set-env-vars="DATABASE_URL=${DB_URL}" \
-            --set-secrets="\
-OPENAI_API_KEY=OPENAI_API_KEY:latest,\
-WEAVIATE_URL=WEAVIATE_URL:latest,\
-WEAVIATE_API_KEY=WEAVIATE_API_KEY:latest,\
-LANGCHAIN_API_KEY=LANGCHAIN_API_KEY:latest,\
-SLACK_WEBHOOK_URL=SLACK_WEBHOOK_URL:latest" \
+            --set-secrets="${SECRETS}" \
             --add-cloudsql-instances="${SQL_INSTANCE}" \
             --min-instances=0 \
             --max-instances=3 \
